@@ -31,7 +31,10 @@ class AI_model:
     pred_dict = {
         0: {"desc": "None", "hit": False},
         1: {"desc": "repair-heal (great)", "hit": True},
-        2: {"desc": "repair-heal (ante-frontier)", "hit": True},
+        # Ante-frontier = needle still BEFORE the great zone. Firing here
+        # pressed ~20 ms too early (measured lead 17-33 ms) and failed the
+        # check, so it is tracked but never acted on.
+        2: {"desc": "repair-heal (ante-frontier)", "hit": False},
         3: {"desc": "repair-heal (out)", "hit": False},
         4: {"desc": "full white (great)", "hit": True},
         5: {"desc": "full white (out)", "hit": False},

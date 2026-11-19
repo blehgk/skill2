@@ -65,6 +65,14 @@ def monitor(monitor_id, hit_ante):
     t0 = time()
     nb_frames = 0
 
+    # One press per skill check. The latch is re-armed by the first frame that
+    # is not a hit class, so the next check is caught immediately; the cooldown
+    # only separates two checks that appear back to back. The old 0.5 s blind
+    # sleep let the needle cross the great zone with no press at all.
+    latched = False
+    last_press = 0.0
+    cooldown_s = 0.35
+
     # Pause toggle with the forward side mouse button ("M4")
     PAUSE_VK = VK_XBUTTON2
     paused = False
@@ -96,18 +104,19 @@ def monitor(monitor_id, hit_ante):
 
             pred, desc, probs, should_hit = ai_model.predict(image_np)
 
+            pressed = False
             if should_hit:
-                # ante-frontier hit delay
-                if pred == 2 and hit_ante > 0:
-                    sleep(hit_ante * 0.001)
+                if not latched and (time() - last_press) >= cooldown_s:
+                    latched = True
+                    last_press = time()
+                    PressKey(SPACE)
+                    ReleaseKey(SPACE)
+                    pressed = True
+            else:
+                latched = False
 
-                PressKey(SPACE)
-                sleep(0.005)
-                ReleaseKey(SPACE)
-
+            if pressed:
                 yield skip(), image_pil, skip()
-
-                sleep(0.5)  # avoid hitting the same skill check multiple times
                 t0 = time()
                 nb_frames = 0
                 continue
