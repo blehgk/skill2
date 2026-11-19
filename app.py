@@ -72,6 +72,11 @@ def monitor(monitor_id, hit_ante):
     latched = False
     last_press = 0.0
     cooldown_s = 0.35
+    # "frontier" classes (2 repair-heal, 9 wiggle) mean the needle is still just
+    # BEFORE the great zone: measured 17-33 ms at 60 fps. Waiting `hit_ante` ms
+    # of persistence lands the press inside the zone, and it also catches the
+    # checks where the model never emits a "great" frame at all.
+    ante_since = None
 
     # Pause toggle with the forward side mouse button ("M4")
     PAUSE_VK = VK_XBUTTON2
@@ -104,11 +109,21 @@ def monitor(monitor_id, hit_ante):
 
             pred, desc, probs, should_hit = ai_model.predict(image_np)
 
+            now = time()
+            in_zone = should_hit
+            if pred in (2, 9):
+                if ante_since is None:
+                    ante_since = now
+                elif (now - ante_since) * 1000.0 >= hit_ante:
+                    in_zone = True
+            else:
+                ante_since = None
+
             pressed = False
-            if should_hit:
-                if not latched and (time() - last_press) >= cooldown_s:
+            if in_zone:
+                if not latched and (now - last_press) >= cooldown_s:
                     latched = True
-                    last_press = time()
+                    last_press = now
                     PressKey(SPACE)
                     ReleaseKey(SPACE)
                     pressed = True
@@ -160,7 +175,8 @@ if __name__ == "__main__":
                 with Column(variant="panel"):
                     Markdown("AI inference settings")
                     monitor_id = Dropdown(choices=monitor_choices, value=monitor_choices[0][1], label="Monitor to use")
-                    hit_ante = Slider(minimum=0, maximum=50, step=5, value=3, label="Ante-frontier hit delay in ms")
+                    hit_ante = Slider(minimum=0, maximum=80, step=5, value=25,
+                                      label="Ante-frontier lead in ms (pulsa X ms despues de ver la aguja cerca de la zona)")
                 status = HTML(value=status_badge("OFF"), label="Estado del bot")
                 with Column():
                     run_button = Button("RUN", variant="primary")
